@@ -2,6 +2,7 @@ package com.laxmi.imageeditor;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.ContentValues;
 import android.graphics.drawable.BitmapDrawable;
 import android.media.MediaScannerConnection;
 import android.os.Build;
@@ -15,6 +16,7 @@ import android.graphics.Matrix;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.MediaStore;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -28,6 +30,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 
 public class EditImageActivity extends AppCompatActivity {
 
@@ -96,36 +99,31 @@ public class EditImageActivity extends AppCompatActivity {
             isFlippedHorizontal = !isFlippedHorizontal;
         }
     }
+
+
     private void saveToGallery() {
-        // Get the current Bitmap from the ImageView
         BitmapDrawable drawable = (BitmapDrawable) imageView.getDrawable();
         Bitmap editedBitmap = drawable.getBitmap();
 
-        String parentPath = "";
-        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // For Android 11 and above
-            parentPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES).getAbsolutePath() + File.separator + getString(R.string.app_folder_name);
-        } else {
-            // For Android 10 and below
-            parentPath = Environment.getExternalStorageDirectory() + File.separator + getString(R.string.app_folder_name);
-        }
+        String relativeLocation = Environment.DIRECTORY_PICTURES + File.separator + getString(R.string.app_folder_name);
 
-        File parentFile = new File(parentPath);
-        if (!parentFile.exists()) {
-            parentFile.mkdirs();
-        }
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Images.Media.DISPLAY_NAME, "Edited" + System.currentTimeMillis() + ".jpeg");
+        values.put(MediaStore.Images.Media.RELATIVE_PATH, relativeLocation);
+        values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
 
-        File imageFile = new File(parentFile, "Edited" + System.currentTimeMillis() + ".png");
+        Uri externalContentUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+        Uri imageUri = getContentResolver().insert(externalContentUri, values);
 
         try {
-      FileOutputStream outputStream = new FileOutputStream(imageFile);
+            OutputStream outputStream = getContentResolver().openOutputStream(imageUri);
             editedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
-            outputStream.flush();
-            outputStream.close();
-            Toast.makeText(this, "Image saved to " + imageFile.getAbsolutePath(), Toast.LENGTH_SHORT).show();
+            if (outputStream != null) {
+                outputStream.close();
+            }
+            Toast.makeText(this, "Image saved to gallery", Toast.LENGTH_SHORT).show();
         } catch (IOException e) {
             e.printStackTrace();
-            // Handle the exception and show an error message to the user
             Toast.makeText(this, "Error saving image", Toast.LENGTH_SHORT).show();
         }
     }
